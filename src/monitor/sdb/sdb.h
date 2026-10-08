@@ -16,8 +16,23 @@
 #ifndef __SDB_H__
 #define __SDB_H__
 
+#include <stdbool.h>
 #include <common.h>
 
+#define NR_WP 32
+
+typedef struct watchpoint {
+  int NO;
+  struct watchpoint *next;
+  char expr[256];
+  word_t last_value;
+} WP;
+
+void init_wp_pool(void);
+WP *new_wp(char *e);
+void free_wp(int no);
+bool scan_wp(void);
+void print_watchpoints(void);
 word_t expr(char *e, bool *success);
 
 #endif

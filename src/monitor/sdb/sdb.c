@@ -12,7 +12,8 @@
 *
 * See the Mulan PSL v2 for more details.
 ***************************************************************************************/
-
+#include <common.h>
+#include <string.h>
 #include <isa.h>
 #include <cpu/cpu.h>
 #include <readline/readline.h>
@@ -20,11 +21,11 @@
 #include "sdb.h"
 
 static int is_batch_mode = false;
-
 void init_regex();
 void init_wp_pool();
-
+word_t expr(char *e, bool *success);
 /* We use the `readline' library to provide more flexibility to read from stdin. */
+
 static char* rl_gets() {
   static char *line_read = NULL;
 
@@ -54,6 +55,80 @@ static int cmd_q(char *args) {
 
 static int cmd_help(char *args);
 
+static int cmd_si(char *args) {
+  int n = 1;
+
+  if (args != NULL && *args != '\0') {
+    sscanf(args, "%d", &n);
+  }
+
+  cpu_exec(n);
+  return 0;
+}
+
+static int cmd_info(char *args) {
+  char *arg = strtok(NULL, " ");
+
+  if (arg == NULL) {
+    printf("Usage: info r/w\n");
+    return 0;
+  }
+
+  if (strcmp(arg, "r") == 0) {
+    isa_reg_display();
+    return 0;
+  }
+
+  if (strcmp(arg, "w") == 0) {
+    /* 显示监视点 */
+    print_watchpoints();
+    return 0;
+  }
+
+  printf("Unknown command: info %s\n", arg);
+  return 0;
+}
+
+static int cmd_p(char *args) {
+  if (args == NULL || *args == '\0') {
+    printf("Usage: p EXPR\n");
+    return 0;
+  }
+
+  bool success = false;
+  word_t result = expr(args, &success);
+
+  if (success) {
+    printf("0x%08x (%u)\n",
+           (uint32_t)result, (uint32_t)result);
+  } else {
+    printf("Bad expression.\n");
+  }
+
+  return 0;
+}
+
+static int cmd_w(char *args) {
+  if (args == NULL || *args == '\0') {
+    printf("Usage: w EXPR\n");
+    return 0;
+  }
+
+  new_wp(args);
+  return 0;
+}
+
+static int cmd_d(char *args) {
+  if (args == NULL || *args == '\0') {
+    printf("Usage: d N\n");
+    return 0;
+  }
+
+  int no = atoi(args);
+  free_wp(no);
+  return 0;
+}
+
 static struct {
   const char *name;
   const char *description;
@@ -62,6 +137,11 @@ static struct {
   { "help", "Display information about all supported commands", cmd_help },
   { "c", "Continue the execution of the program", cmd_c },
   { "q", "Exit NEMU", cmd_q },
+  { "si", "Step instruction", cmd_si },
+  { "info", "Print register or watchpoint information", cmd_info },
+  { "p", "Evaluate expression", cmd_p },
+  { "w", "set watchpoint", cmd_w },
+  { "d", "delete watchpoint", cmd_d },
 
   /* TODO: Add more commands */
 
